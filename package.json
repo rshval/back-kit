@@ -10,7 +10,9 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
+    "prepack": "npm run build",
+    "pack:dry": "npm pack --dry-run",
     "rebuild": "npm run format && npm run lint",
     "lint": "tsc",
     "dev": "nodemon",
@@ -24,20 +26,22 @@
   "description": "Backend utilities for Node.js services used in rshval monorepos",
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.3",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "cyrillic-to-translit-js": "^3.2.1",
-    "libphonenumber-js": "^1.12.38",
-    "jsonwebtoken": "^9.0.3",
-    "nodemailer": "^8.0.1",
     "chalk": "^5.6.2",
+    "cyrillic-to-translit-js": "^3.2.1",
     "delay": "^7.0.0",
-    "mongoose": "^9.2.3",
-    "ora": "^9.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "libphonenumber-js": "^1.12.38",
     "lru-cache": "^11.2.2",
+    "mongoose": "^9.2.3",
+    "nodemailer": "^8.0.1",
+    "ora": "^9.3.0",
     "socket.io-client": "^4.8.3"
   },
   "repository": {
