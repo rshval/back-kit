@@ -1,31 +1,18 @@
-# @mymaillil/back
+# @rshval/back-kit
 
-Пакет серверных утилит для проектов mymaillil.
+Публичный npm-пакет `@rshval/back-kit` с серверными утилитами для использования в монорепозиториях.
 
 ## Публикация как отдельного публичного пакета
 
 1. В корне монорепозитория выполните:
 
    ```bash
-   ./scripts/extract-mymaillil-back.sh
+   ./scripts/extract-back-kit-back.sh
    ```
 
-   По умолчанию будет создана соседняя папка `../mymaillil-back-public` с отдельным git-репозиторием и историей коммитов пакета.
+   По умолчанию будет создана соседняя папка `../back-kit` с отдельным git-репозиторием и историей коммитов пакета.
 
-2. Перейдите в новый репозиторий и подключите удалённый origin:
-
-   ```bash
-   cd ../mymaillil-back-public
-   git remote remove origin
-   git remote add origin https://github.com/rshval/back-kit.git
-   git push -u origin main
-   ```
-
-3. Опубликуйте пакет в npm:
-
-   ```bash
-   npm publish --access public
-   ```
+> Репозиторий используется для внутренних проектов автора. Любое использование третьими лицами выполняется на их страх и риск.
 
 ## Разработка (standalone)
 
