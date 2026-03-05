@@ -512,6 +512,17 @@ npm publish
 
 > Пакет публикуется как `public` (см. `publishConfig.access`).
 
+
+> Если при `npm publish` появляется ошибка `E403` с текстом
+> `Two-factor authentication or granular access token with bypass 2fa enabled is required`,
+> значит текущий токен не подходит для публикации.
+>
+> Варианты решения:
+> - выполните `npm login --auth-type=web` и подтвердите OTP при публикации;
+> - или создайте **granular access token** на npmjs.com с правами `read and write`
+>   для пакета и включённым `bypass 2FA for publishing`, затем обновите токен локально
+>   через `npm logout && npm login` (или настройкой в `.npmrc`).
+
 ---
 
 ## Разработка (standalone)
