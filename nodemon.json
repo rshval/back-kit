@@ -1,0 +1,18 @@
+{
+  "env": {
+    "MONGO_ATLAS_PW": "",
+    "JWT_KEY": "onLyDevelopmentKeY1"
+  },
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    ".git",
+    "node_modules",
+    "logs",
+    "uploads"
+  ],
+  "watch": ["src"],
+  "legacyWatch": true,
+  "exec": "npm run rebuild",
+  "ext": "ts, js, json"
+}

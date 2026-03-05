@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "outDir": "./build",
+    "isolatedModules": true,
+    "lib": ["esnext"],
+    "moduleResolution": "nodenext",
+    "module": "nodenext",
+    "target": "esnext",
+    "ignoreDeprecations": "5.0",
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "noImplicitAny": false,
+    "useUnknownInCatchVariables": false,
+    "verbatimModuleSyntax": true
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node",
+    "transpileOnly": true,
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": [
+    "./src/declares.d.ts",
+    "./src/types.d.ts",
+    "./src/**/*.js",
+    "./src/**/*.ts",
+    "./tests/**/*.js",
+    "./tests/**/*.ts"
+  ],
+  "exclude": ["./node_modules/*", "./[!ambient.d.ts]**"]
+}
