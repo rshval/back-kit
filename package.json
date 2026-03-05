@@ -1,5 +1,5 @@
 {
-  "name": "@mymaillil/back",
+  "name": "@rshval/back-kit",
   "version": "1.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
   },
   "author": "",
   "license": "MIT",
-  "description": "Backend utilities for Node.js services used in mymaillil projects",
+  "description": "Backend utilities for Node.js services used in rshval monorepos",
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "prettier": "^3.8.1",
