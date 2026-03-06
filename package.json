@@ -6,7 +6,8 @@
   "type": "module",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "tsconfig.sites.json"
   ],
   "scripts": {
     "test": "vitest run",
@@ -60,6 +61,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./tsconfig.sites.json": "./tsconfig.sites.json"
   }
 }
