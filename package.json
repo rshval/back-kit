@@ -28,7 +28,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.3.5",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
@@ -39,8 +39,8 @@
     "delay": "^7.0.0",
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.12.38",
-    "lru-cache": "^11.2.2",
-    "mongoose": "^9.2.3",
+    "lru-cache": "^11.2.6",
+    "mongoose": "^9.2.4",
     "nodemailer": "^8.0.1",
     "ora": "^9.3.0",
     "socket.io-client": "^4.8.3"
