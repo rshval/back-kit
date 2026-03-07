@@ -25,7 +25,7 @@
   },
   "author": "",
   "license": "MIT",
-  "description": "Backend utilities for Node.js services used in rshval monorepos",
+  "description": "Backend toolkit of service factories (create*/build*), validators and Node.js API utilities with DI-friendly patterns",
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@types/jsonwebtoken": "^9.0.10",
