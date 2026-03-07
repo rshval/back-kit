@@ -1,45 +1,45 @@
 # @rshval/back-kit
 
-Публичный npm-пакет `@rshval/back-kit` с серверными утилитами для Node.js/TypeScript проектов.
+Public npm package `@rshval/back-kit` with server-side utilities for Node.js/TypeScript projects.
 
-> Репозиторий используется для внутренних проектов автора. Любое использование третьими лицами выполняется на их страх и риск.
+> This repository is used for the author's internal projects. Any third-party usage is at your own risk.
 
-## Установка
+## Installation
 
 ```bash
 npm i @rshval/back-kit
 ```
 
-Пакет ESM-only (`"type": "module"`). Для CommonJS используйте динамический `import()`.
+The package is ESM-only (`"type": "module"`). For CommonJS, use dynamic `import()`.
 
-## Быстрая навигация
+## Quick navigation
 
 - [Email](#1-email)
-- [Конфиг и JWT](#2-конфиг-и-jwt)
-- [Вспомогательные утилиты](#3-вспомогательные-утилиты)
-- [Валидация](#4-валидация)
-- [Билдеры](#5-билдеры-привязка-к-конфигу)
-- [База данных](#6-база-данных)
-- [Кэш](#7-кэш)
-- [Логирование](#8-логирование)
-- [WebSocket клиент](#9-websocket-клиент)
+- [Config and JWT](#2-config-and-jwt)
+- [Helper utilities](#3-helper-utilities)
+- [Validation](#4-validation)
+- [Builders](#5-builders-config-bound)
+- [Database](#6-database)
+- [Cache](#7-cache)
+- [Logging](#8-logging)
+- [WebSocket client](#9-websocket-client)
 - [Paymaster](#10-paymaster)
-- [Почтовые шаблоны](#11-почтовые-шаблоны)
-- [Аудит изменений](#12-аудит-изменений)
-- [Seed-функции](#13-seed-функции)
-- [API-клиент](#14-api-клиент)
+- [Mail templates](#11-mail-templates)
+- [Audit changes](#12-audit-changes)
+- [Seed functions](#13-seed-functions)
+- [API client](#14-api-client)
 
 ---
 
-## API и примеры использования
+## API and usage examples
 
-Ниже перечислены публичные экспорты из пакета (через `src/index.ts`) с короткими примерами. Для ключевых API добавлены отдельные **продакшен-примеры** с паттернами интеграции в реальный сервис.
+Below are the public exports from the package (via `src/index.ts`) with short examples. For key APIs, there are separate **production examples** that show practical integration patterns for real services.
 
 ### 1) Email
 
 #### `createMailOptions({ from, to, subject, text })`
 
-Создаёт объект параметров письма для nodemailer. Поддерживает `to` как строку (обычная отправка) или объект формы (`MailOptionsBody`) для заявок/обратной связи.
+Creates a nodemailer mail options object. Supports `to` as a string (regular send) or a form object (`MailOptionsBody`) for requests/feedback scenarios.
 
 ```ts
 import { createMailOptions } from '@rshval/back-kit';
@@ -54,7 +54,7 @@ const options = createMailOptions({
 
 #### `sendEmailWithConfig({ nodemailerConfig, to, subject, text })`
 
-Создаёт transport через nodemailer, отправляет письмо и возвращает строку с результатом отправки.
+Creates a nodemailer transport, sends an email, and returns a string with the send result.
 
 ```ts
 import { sendEmailWithConfig } from '@rshval/back-kit';
@@ -72,7 +72,7 @@ await sendEmailWithConfig({
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 import { buildSendEmail } from '@rshval/back-kit';
@@ -83,11 +83,11 @@ await sendEmailWithConfig(to, subject, text);
 
 ---
 
-### 2) Конфиг и JWT
+### 2) Config and JWT
 
 #### `getBaseUrlByConfig(config, baseUrl?)`
 
-Строит base URL по конфигу приложения. В `development` добавляет `:port`.
+Builds a base URL from app config. In `development`, adds `:port`.
 
 ```ts
 import { getBaseUrlByConfig } from '@rshval/back-kit';
@@ -105,7 +105,7 @@ const base = getBaseUrlByConfig(
 
 #### `createTokenByConfig({ config, user, expiresIn })`
 
-Создаёт JWT-токен на основе `config.jwt.JWT_KEY` (или `JWT_KEY_NO_ENV`).
+Creates a JWT token based on `config.jwt.JWT_KEY` (or `JWT_KEY_NO_ENV`).
 
 ```ts
 import { createTokenByConfig } from '@rshval/back-kit';
@@ -122,11 +122,11 @@ const token = createTokenByConfig({
 
 ---
 
-### 3) Вспомогательные утилиты
+### 3) Helper utilities
 
 #### `createPinCode(min?, max?)`
 
-Генерирует случайный числовой PIN в диапазоне (`10000..99990` по умолчанию).
+Generates a random numeric PIN in range (`10000..99990` by default).
 
 ```ts
 import { createPinCode } from '@rshval/back-kit';
@@ -136,7 +136,7 @@ const pin = createPinCode();
 
 #### `getIp(req)`
 
-Пытается определить IP клиента из `req.ip`, сокетов и `x-forwarded-for`.
+Attempts to detect client IP from `req.ip`, sockets, and `x-forwarded-for`.
 
 ```ts
 import { getIp } from '@rshval/back-kit';
@@ -146,42 +146,42 @@ const ip = await getIp(req);
 
 #### `translitUrl(str)`
 
-Транслитерирует строку в URL-friendly slug (`-`, lower-case).
+Transliterates a string into a URL-friendly slug (`-`, lower-case).
 
 ```ts
 import { translitUrl } from '@rshval/back-kit';
 
-const slug = translitUrl('Пример страницы');
+const slug = translitUrl('Page example');
 // primer-stranicy
 ```
 
 ---
 
-### 4) Валидация
+### 4) Validation
 
 #### `patternEmail()`
 
-Возвращает RegExp для проверки email.
+Returns a RegExp for email validation.
 
 #### `patternPassword()`
 
-Возвращает RegExp для пароля (минимум 8 символов, буквы + цифры).
+Returns a RegExp for password validation (at least 8 chars, letters + digits).
 
 #### `isValidEmail(val)`
 
-Проверяет корректность email.
+Checks whether an email is valid.
 
 #### `isValidPhoneNumber(val)`
 
-Проверяет номер телефона через `libphonenumber-js`.
+Validates a phone number via `libphonenumber-js`.
 
 #### `isValidCode(code, length)`
 
-Проверяет длину кода.
+Checks code length.
 
 #### `isEmpty(val)`
 
-Проверяет пустую строку (`trim`) или пустой объект.
+Checks for an empty string (`trim`) or an empty object.
 
 ```ts
 import {
@@ -205,19 +205,19 @@ isEmpty({}); // true
 
 ---
 
-### 5) Билдеры (привязка к конфигу)
+### 5) Builders (config-bound)
 
 #### `buildGetBaseUrl(config)`
 
-Возвращает функцию `(baseUrl?) => string`.
+Returns a function `(baseUrl?) => string`.
 
 #### `buildCreateToken(config)`
 
-Возвращает функцию создания JWT с уже «зашитым» конфигом.
+Returns a JWT creator function with pre-bound config.
 
 #### `buildSendEmail(nodemailerConfig)`
 
-Возвращает функцию отправки email с уже «зашитым» SMTP-конфигом.
+Returns an email sender function with pre-bound SMTP config.
 
 ```ts
 import {
@@ -247,11 +247,11 @@ const sendEmail = buildSendEmail({
 
 ---
 
-### 6) База данных
+### 6) Database
 
 #### `startMongoDatabase(options)`
 
-Запускает подключение к MongoDB через mongoose, логирует статусы и умеет ретраить подключение.
+Starts MongoDB connection via mongoose, logs statuses, and supports connection retries.
 
 ```ts
 import { startMongoDatabase } from '@rshval/back-kit';
@@ -266,7 +266,7 @@ await startMongoDatabase({
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 await startMongoDatabase({
@@ -279,11 +279,11 @@ await startMongoDatabase({
 
 ---
 
-### 7) Кэш
+### 7) Cache
 
 #### `createCacheService(options?)`
 
-Создаёт LRU cache-сервис с методами:
+Creates an LRU cache service with methods:
 
 - `get(key)`
 - `set(key, data, compareKey?, compareValue?, ttlMs?)`
@@ -291,8 +291,8 @@ await startMongoDatabase({
 - `getId(val)`
 - `keys()`
 - `clear()`
-- `entries()` _(если `exposeEntries: true`)_
-- `values()` _(если `exposeValues: true`)_
+- `entries()` _(if `exposeEntries: true`)_
+- `values()` _(if `exposeValues: true`)_
 
 ```ts
 import { createCacheService } from '@rshval/back-kit';
@@ -305,12 +305,12 @@ const value = await cache.get(key);
 
 #### `createCacheMiddleware({ cache, ... })`
 
-Создаёт middleware-обёртку над cache-сервисом с методами:
+Creates a middleware wrapper over the cache service with methods:
 
 - `get(id)`
 - `set(id, data, expDataTime)`
 - `del(id)`
-- `delByPrefix(prefix)` _(если `includeDelByPrefix: true`)_
+- `delByPrefix(prefix)` _(if `includeDelByPrefix: true`)_
 
 ```ts
 import { createCacheService, createCacheMiddleware } from '@rshval/back-kit';
@@ -327,7 +327,7 @@ const cached = await cm.get('users:list');
 await cm.delByPrefix?.('users:');
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 const cache = createCacheService({ supportTtlInSet: true });
@@ -343,11 +343,11 @@ export const delByPrefix = cacheMiddleware.delByPrefix!;
 
 ---
 
-### 8) Логирование
+### 8) Logging
 
 #### `createLoggerService({ rootdir? })`
 
-Возвращает фабрику логгеров. Для каждого namespace (`std`) пишет:
+Returns a logger factory. For each namespace (`std`) it writes:
 
 - `logs/<std>/stdout.log`
 - `logs/<std>/stderr.log`
@@ -360,7 +360,7 @@ const logger = makeLogger('api');
 logger.log('started');
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 const loggerService = createLoggerService();
@@ -369,14 +369,14 @@ const logger = loggerService('api');
 
 ---
 
-### 9) WebSocket клиент
+### 9) WebSocket client
 
 #### `createSocketClientService(options)`
 
-Создаёт сервис клиента `socket.io` с методами:
+Creates a `socket.io` client service with methods:
 
-- `doSocketClient()` — старт подключения
-- `getSocketClient()` — вернуть текущий инстанс
+- `doSocketClient()` — start connection
+- `getSocketClient()` — return current instance
 
 ```ts
 import { createSocketClientService } from '@rshval/back-kit';
@@ -393,7 +393,7 @@ const ws = createSocketClientService({
 ws.doSocketClient();
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 const socketClientService = createSocketClientService({
@@ -413,11 +413,11 @@ socketClientService.doSocketClient();
 
 #### `createPaymasterService({ paymaster, clientServer, serverBaseUrl })`
 
-Создаёт сервис с методами:
+Creates a service with methods:
 
-- `createPaymentLink({...})` — сформировать ссылку на оплату
-- `validateCallback(payload, rawBody?)` — проверить подпись callback
-- `parseCallback(payload)` — нормализовать callback в удобный объект
+- `createPaymentLink({...})` — build payment URL
+- `validateCallback(payload, rawBody?)` — verify callback signature
+- `parseCallback(payload)` — normalize callback into a convenient object
 
 ```ts
 import { createPaymasterService } from '@rshval/back-kit';
@@ -440,7 +440,7 @@ const link = paymaster.createPaymentLink({
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 export const paymasterService = createPaymasterService({
@@ -452,15 +452,15 @@ export const paymasterService = createPaymasterService({
 
 ---
 
-### 11) Почтовые шаблоны
+### 11) Mail templates
 
 #### `createMailTemplateService({ findTemplate, sendEmail })`
 
-Создаёт сервис шаблонов email с методами:
+Creates an email template service with methods:
 
-- `extractVariables(template)` — список `{{variables}}`
-- `renderTemplate(template, context?)` — рендер subject/body
-- `sendByKey({ key, to, context? })` — найти шаблон, отрендерить и отправить
+- `extractVariables(template)` — list of `{{variables}}`
+- `renderTemplate(template, context?)` — render subject/body
+- `sendByKey({ key, to, context? })` — find template, render, and send
 
 ```ts
 import { createMailTemplateService } from '@rshval/back-kit';
@@ -482,7 +482,7 @@ await mailTemplates.sendByKey({
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 const sendEmailWithConfig = buildSendEmail(runtimeConfig);
@@ -495,15 +495,15 @@ export const mailTemplateService = createMailTemplateService({
 
 ---
 
-### 12) Аудит изменений
+### 12) Audit changes
 
 #### `buildAuditChanges({ beforeData, afterData, fieldsToCheck, protectedFields? })`
 
-Сравнивает данные «до/после» и возвращает массив изменений по выбранным полям.
+Compares before/after data and returns an array of changes for selected fields.
 
 #### `createAuditLog({ ..., save })`
 
-Создаёт запись аудита через переданную функцию `save`. Если изменений нет — возвращает `null`.
+Creates an audit record via provided `save` function. Returns `null` when no changes exist.
 
 ```ts
 import { buildAuditChanges, createAuditLog } from '@rshval/back-kit';
@@ -525,7 +525,7 @@ await createAuditLog({
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 await createAuditLog({
@@ -541,14 +541,14 @@ await createAuditLog({
 
 ---
 
-### 13) Seed-функции
+### 13) Seed functions
 
 #### `createSeedFunctions({ cache, retryDelayMs? })`
 
-Возвращает методы:
+Returns methods:
 
-- `checkDatabaseIsConnected()` — проверяет состояние БД через кэш
-- `setSeedData(SeedModel, arr)` — добавляет seed-данные после подтверждения подключения
+- `checkDatabaseIsConnected()` — checks DB state via cache
+- `setSeedData(SeedModel, arr)` — inserts seed data after connection check
 
 ```ts
 import { createSeedFunctions, createCacheService } from '@rshval/back-kit';
@@ -559,7 +559,7 @@ const { setSeedData } = createSeedFunctions({ cache });
 // await setSeedData(UserModel, [{ name: 'Admin' }])
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 export const { checkDatabaseIsConnected, setSeedData } = createSeedFunctions({
@@ -569,11 +569,11 @@ export const { checkDatabaseIsConnected, setSeedData } = createSeedFunctions({
 
 ---
 
-### 14) API-клиент
+### 14) API client
 
 #### `createApiService({ userAgent, logger? })`
 
-Возвращает HTTP-клиент с методами:
+Returns an HTTP client with methods:
 
 - `get(path, token?)`
 - `getXml(path, token?)`
@@ -595,7 +595,7 @@ const created = await api.post('https://api.example.com/users', {
 });
 ```
 
-**Продакшен-пример**:
+**Production example**:
 
 ```ts
 const apiService = createApiService({
@@ -606,7 +606,7 @@ const apiService = createApiService({
 export const { get, getXml, del, post, put } = apiService;
 ```
 
-Также экспортируется тип токена:
+Token type is also exported:
 
 ```ts
 import type { Token } from '@rshval/back-kit';
@@ -614,15 +614,15 @@ import type { Token } from '@rshval/back-kit';
 
 ---
 
-### 15) Прочие экспортированные утилиты
+### 15) Other exported utilities
 
 #### `add(a, b)`
 
-Возвращает сумму двух чисел.
+Returns the sum of two numbers.
 
 #### `test2()`
 
-Логирует `99` и возвращает `8`.
+Logs `99` and returns `8`.
 
 ```ts
 import { add, test2 } from '@rshval/back-kit';
@@ -633,26 +633,26 @@ test2(); // 8
 
 ---
 
-## Подготовка к публикации в npm
+## Preparing for npm publication
 
-См. подробную инструкцию: [`docs/publishing.md`](docs/publishing.md).
+See detailed guide: [`docs/publishing.md`](docs/publishing.md).
 
-Короткая формулировка для npm-описания:
+Short wording for npm description:
 
-- Набор фабрик сервисов (`create*`, `build*`) и готовых утилит/валидаторов.
-- DI-friendly API: зависимости передаются снаружи (`logger`, `cache`, `save`, `findTemplate`).
-- Важные поведенческие опции (`supportTtlInSet`, `passTtlToCacheSet`, `includeDelByPrefix`) стоит документировать рядом с примерами.
+- A set of service factories (`create*`, `build*`) and ready-to-use utilities/validators.
+- DI-friendly API: dependencies are injected externally (`logger`, `cache`, `save`, `findTemplate`).
+- Important behavior options (`supportTtlInSet`, `passTtlToCacheSet`, `includeDelByPrefix`) should be documented near examples.
 
 ---
 
-## Разработка (standalone)
+## Development (standalone)
 
 ```bash
 npm install
 npm run build
 ```
 
-## Экспорты
+## Exports
 
 - ESM: `dist/index.js`
-- Типы: `dist/index.d.ts`
+- Types: `dist/index.d.ts`
