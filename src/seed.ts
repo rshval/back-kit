@@ -46,9 +46,10 @@ export const createSeedFunctions = ({
     const databaseIsConnected = await checkDatabaseIsConnected();
 
     if (databaseIsConnected) {
-      const spinner = ora(
-        chalk.gray('add seed data - ' + SeedModel.modelName),
-      ).start();
+      const spinner = ora({
+        text: chalk.gray('add seed data - ' + SeedModel.modelName),
+        stream: process.stdout,
+      }).start();
 
       type Doc = HydratedDocument<typeof SeedModel>;
 
