@@ -105,16 +105,18 @@ export const createPaymasterService = ({
       customerEmail,
       customerPhone,
       customerName,
+      debug,
     }: {
       requestId: string;
       amount: number;
       description: string;
-      successUrl?: string;
-      failUrl?: string;
+      successUrl?: string | null;
+      failUrl?: string | null;
       notificationPath?: string;
       customerEmail?: string;
       customerPhone?: string;
       customerName?: string;
+      debug?: boolean;
     }) {
       const paymentNo = `${requestId}-${Date.now()}`;
       const params = new URLSearchParams();
@@ -132,19 +134,19 @@ export const createPaymasterService = ({
 
       const resolvedSuccessUrl = resolveUrl(
         clientServer,
-        successUrl || '',
+        successUrl ?? '',
         paymaster.successPath || '',
       );
       const resolvedFailUrl = resolveUrl(
         clientServer,
-        failUrl || '',
+        failUrl ?? '',
         paymaster.failPath || '',
       );
       const fallbackNotificationPath =
-        notificationPath ||
+        notificationPath ??
         (requestId.startsWith('order_')
           ? paymaster.notificationPathOrder
-          : paymaster.notificationPathRequest) ||
+          : paymaster.notificationPathRequest) ??
         '';
       const resolvedNotificationUrl = resolveUrl(
         serverBaseUrl,
@@ -153,11 +155,14 @@ export const createPaymasterService = ({
       );
 
       if (resolvedSuccessUrl) params.set('LMI_SUCCESS_URL', resolvedSuccessUrl);
-      if (resolvedFailUrl) params.set('LMI_FAIL_URL', resolvedFailUrl);
+      if (resolvedFailUrl) {
+        params.set('LMI_FAIL_URL', resolvedFailUrl);
+        params.set('LMI_FAILURE_URL', resolvedFailUrl);
+      }
       if (resolvedNotificationUrl)
         params.set('LMI_NOTIFICATION_URL', resolvedNotificationUrl);
 
-      return {
+      const response = {
         paymentNo,
         paymentUrl: `${paymaster.checkoutUrl}?${params.toString()}`,
         urls: {
@@ -165,6 +170,13 @@ export const createPaymasterService = ({
           fail: resolvedFailUrl,
           notification: resolvedNotificationUrl,
         },
+      };
+
+      if (!debug) return response;
+
+      return {
+        ...response,
+        effectivePayload: Object.fromEntries(params.entries()),
       };
     },
 
