@@ -418,7 +418,8 @@ Creates a service with methods:
 - `createPaymentLink({...})` — build payment URL
 - `validateCallback(payload, rawBody?)` — verify callback signature
 - `parseCallback(payload)` — normalize callback into a convenient object
-- `syncPaymentStatus({ paymentNo, merchantId? })` — safe PSP status sync (returns `null` on any API error)
+- `syncPaymentStatus({ paymentNo, merchantId? })` — safe PSP status sync (returns `null` on any API error), normalized status: `paid | cancelled | pending | refunded`
+- `createRefund({ paymentNo, amount, currency, reason, merchantId? })` — request refund via provider API
 
 ```ts
 import { createPaymasterService } from '@rshval/back-kit';
@@ -432,6 +433,9 @@ const paymaster = createPaymasterService({
     statusApiUrl: process.env.PAYMASTER_STATUS_API_URL,
     statusApiToken: process.env.PAYMASTER_STATUS_API_TOKEN,
     statusApiTimeoutMs: Number(process.env.PAYMASTER_STATUS_API_TIMEOUT_MS || 8000),
+    refundApiUrl: process.env.PAYMASTER_REFUND_API_URL,
+    refundApiToken: process.env.PAYMASTER_REFUND_API_TOKEN,
+    refundApiTimeoutMs: Number(process.env.PAYMASTER_REFUND_API_TIMEOUT_MS || 8000),
   },
   clientServer: 'https://site.example.com',
   serverBaseUrl: 'https://api.example.com',
@@ -450,7 +454,20 @@ const synced = await paymaster.syncPaymentStatus({
 if (!synced) {
   // Safe fallback: keep local status unchanged or schedule retry
 } else {
+  // status: 'paid' | 'cancelled' | 'pending' | 'refunded'
   console.log(synced.status, synced.statusRaw);
+}
+
+const refund = await paymaster.createRefund({
+  paymentNo: link.paymentNo,
+  amount: 1499,
+  reason: 'Customer requested cancellation',
+  // optional
+  currency: 'RUB',
+});
+
+if (!refund.success) {
+  console.error(refund.error, refund.httpStatus, refund.statusRaw);
 }
 ```
 
@@ -459,6 +476,12 @@ if (!synced) {
 - `PAYMASTER_STATUS_API_URL`
 - `PAYMASTER_STATUS_API_TOKEN`
 - `PAYMASTER_STATUS_API_TIMEOUT_MS`
+
+**Refund API environment variables**:
+
+- `PAYMASTER_REFUND_API_URL`
+- `PAYMASTER_REFUND_API_TOKEN`
+- `PAYMASTER_REFUND_API_TIMEOUT_MS`
 
 **Production example**:
 
