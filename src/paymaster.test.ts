@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { createPaymasterService } from './paymaster.js';
 
@@ -73,5 +73,73 @@ describe('paymaster createPaymentLink', () => {
     expect(result.effectivePayload.LMI_SUCCESS_URL).toBe(
       'https://client.example/success',
     );
+  });
+});
+
+describe('paymaster syncPaymentStatus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('returns null when statusApiUrl is not configured', async () => {
+    const service = createService();
+
+    const result = await service.syncPaymentStatus({ paymentNo: 'p-1' });
+
+    expect(result).toBeNull();
+  });
+
+  test('returns normalized status and metadata for successful response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ result: { paymentStatus: 'processed' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock as typeof fetch);
+
+    const service = createPaymasterService({
+      paymaster: {
+        merchantId: 'merchant-1',
+        checkoutUrl: 'https://paymaster.example/checkout',
+        statusApiUrl: 'https://paymaster.example/status',
+        statusApiToken: 'token-1',
+      },
+      clientServer: 'https://client.example',
+      serverBaseUrl: 'https://api.example',
+    });
+
+    const result = await service.syncPaymentStatus({ paymentNo: 'p-1' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result).toEqual({
+      status: 'paid',
+      statusRaw: 'processed',
+      rawResponse: { result: { paymentStatus: 'processed' } },
+      httpStatus: 200,
+      provider: 'paymaster',
+    });
+  });
+
+  test('returns null for non-2xx response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ status: 'error' }),
+    });
+    vi.stubGlobal('fetch', fetchMock as typeof fetch);
+
+    const service = createPaymasterService({
+      paymaster: {
+        merchantId: 'merchant-1',
+        checkoutUrl: 'https://paymaster.example/checkout',
+        statusApiUrl: 'https://paymaster.example/status',
+      },
+      clientServer: 'https://client.example',
+      serverBaseUrl: 'https://api.example',
+    });
+
+    const result = await service.syncPaymentStatus({ paymentNo: 'p-1' });
+
+    expect(result).toBeNull();
   });
 });

@@ -418,6 +418,7 @@ Creates a service with methods:
 - `createPaymentLink({...})` — build payment URL
 - `validateCallback(payload, rawBody?)` — verify callback signature
 - `parseCallback(payload)` — normalize callback into a convenient object
+- `syncPaymentStatus({ paymentNo, merchantId? })` — safe PSP status sync (returns `null` on any API error)
 
 ```ts
 import { createPaymasterService } from '@rshval/back-kit';
@@ -428,6 +429,9 @@ const paymaster = createPaymasterService({
     secretKey: 'secret',
     checkoutUrl: 'https://paymaster.ru/Payment/Init',
     checkSignature: true,
+    statusApiUrl: process.env.PAYMASTER_STATUS_API_URL,
+    statusApiToken: process.env.PAYMASTER_STATUS_API_TOKEN,
+    statusApiTimeoutMs: Number(process.env.PAYMASTER_STATUS_API_TIMEOUT_MS || 8000),
   },
   clientServer: 'https://site.example.com',
   serverBaseUrl: 'https://api.example.com',
@@ -438,7 +442,23 @@ const link = paymaster.createPaymentLink({
   amount: 1499,
   description: 'Order #123',
 });
+
+const synced = await paymaster.syncPaymentStatus({
+  paymentNo: link.paymentNo,
+});
+
+if (!synced) {
+  // Safe fallback: keep local status unchanged or schedule retry
+} else {
+  console.log(synced.status, synced.statusRaw);
+}
 ```
+
+**Status API environment variables**:
+
+- `PAYMASTER_STATUS_API_URL`
+- `PAYMASTER_STATUS_API_TOKEN`
+- `PAYMASTER_STATUS_API_TIMEOUT_MS`
 
 **Production example**:
 
