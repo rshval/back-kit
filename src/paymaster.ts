@@ -8,6 +8,7 @@ export type PaymasterCallbackPayload = Record<
 type HashAlgo = 'md5' | 'sha256';
 
 type PaymentStatus = 'paid' | 'cancelled';
+type PaymentSyncStatus = 'paid' | 'cancelled' | 'pending';
 
 interface PaymasterConfig {
   merchantId: string;
@@ -21,6 +22,9 @@ interface PaymasterConfig {
   notificationPathRequest?: string;
   notificationPathOrder?: string;
   checkSignature?: boolean;
+  statusApiUrl?: string;
+  statusApiToken?: string;
+  statusApiTimeoutMs?: number;
 }
 
 interface PaymasterServiceOptions {
@@ -71,6 +75,57 @@ const buildSignBase = (payload: PaymasterCallbackPayload, secret: string) =>
     normalize(payload.LMI_SIM_MODE),
     secret,
   ].join(';');
+
+const extractStatusRaw = (rawResponse: unknown) => {
+  if (!rawResponse || typeof rawResponse !== 'object') return '';
+
+  const record = rawResponse as Record<string, unknown>;
+  const result =
+    record.result && typeof record.result === 'object'
+      ? (record.result as Record<string, unknown>)
+      : null;
+  const candidates = [
+    record.status,
+    record.paymentStatus,
+    record.payment_status,
+    record.state,
+    record.invoiceStatus,
+    record.invoice_status,
+    record.LMI_PAYMENT_STATUS,
+    record.LMI_STATUS,
+    result?.status,
+    result?.state,
+    result?.paymentStatus,
+  ];
+
+  for (const candidate of candidates) {
+    const value = normalize(candidate).trim();
+    if (value) return value;
+  }
+
+  return '';
+};
+
+const mapStatus = (statusRaw: string): PaymentSyncStatus => {
+  const normalized = statusRaw.toLowerCase();
+
+  if (['paid', 'success', 'processed'].includes(normalized)) return 'paid';
+  if (
+    [
+      'cancelled',
+      'canceled',
+      'failed',
+      'rejected',
+      'declined',
+      'error',
+      'refunded',
+    ].includes(normalized)
+  ) {
+    return 'cancelled';
+  }
+
+  return 'pending';
+};
 
 export const createPaymasterService = ({
   paymaster,
@@ -238,6 +293,74 @@ export const createPaymasterService = ({
         status: isSuccess ? 'paid' : 'cancelled',
         statusRaw,
       };
+    },
+
+    async syncPaymentStatus({
+      paymentNo,
+      merchantId,
+    }: {
+      paymentNo?: string;
+      merchantId?: string;
+    }): Promise<
+      | null
+      | {
+          status: PaymentSyncStatus;
+          statusRaw: string;
+          rawResponse: unknown;
+          httpStatus?: number;
+          provider?: 'paymaster';
+        }
+    > {
+      const statusApiUrl = normalize(paymaster.statusApiUrl).trim();
+      const paymentNoValue = normalize(paymentNo).trim();
+
+      if (!statusApiUrl || !paymentNoValue) return null;
+
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        paymaster.statusApiTimeoutMs ?? 8000,
+      );
+
+      try {
+        const response = await fetch(statusApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(paymaster.statusApiToken
+              ? { Authorization: `Bearer ${paymaster.statusApiToken}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            merchantId: normalize(merchantId).trim() || paymaster.merchantId,
+            paymentNo: paymentNoValue,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) return null;
+
+        let rawResponse: unknown;
+        try {
+          rawResponse = await response.json();
+        } catch {
+          return null;
+        }
+
+        const statusRaw = extractStatusRaw(rawResponse);
+
+        return {
+          status: mapStatus(statusRaw),
+          statusRaw,
+          rawResponse,
+          httpStatus: response.status,
+          provider: 'paymaster',
+        };
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   };
 };
