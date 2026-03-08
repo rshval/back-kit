@@ -8,7 +8,7 @@ export type PaymasterCallbackPayload = Record<
 type HashAlgo = 'md5' | 'sha256';
 
 type PaymentStatus = 'paid' | 'cancelled';
-type PaymentSyncStatus = 'paid' | 'cancelled' | 'pending';
+type PaymentSyncStatus = 'paid' | 'cancelled' | 'pending' | 'refunded';
 
 interface PaymasterConfig {
   merchantId: string;
@@ -25,6 +25,9 @@ interface PaymasterConfig {
   statusApiUrl?: string;
   statusApiToken?: string;
   statusApiTimeoutMs?: number;
+  refundApiUrl?: string;
+  refundApiToken?: string;
+  refundApiTimeoutMs?: number;
 }
 
 interface PaymasterServiceOptions {
@@ -112,13 +115,24 @@ const mapStatus = (statusRaw: string): PaymentSyncStatus => {
   if (['paid', 'success', 'processed'].includes(normalized)) return 'paid';
   if (
     [
+      'refunded',
+      'refund',
+      'partially_refunded',
+      'partial_refund',
+      'partial-refund',
+    ].includes(normalized)
+  ) {
+    return 'refunded';
+  }
+
+  if (
+    [
       'cancelled',
       'canceled',
       'failed',
       'rejected',
       'declined',
       'error',
-      'refunded',
     ].includes(normalized)
   ) {
     return 'cancelled';
@@ -301,16 +315,13 @@ export const createPaymasterService = ({
     }: {
       paymentNo?: string;
       merchantId?: string;
-    }): Promise<
-      | null
-      | {
-          status: PaymentSyncStatus;
-          statusRaw: string;
-          rawResponse: unknown;
-          httpStatus?: number;
-          provider?: 'paymaster';
-        }
-    > {
+    }): Promise<null | {
+      status: PaymentSyncStatus;
+      statusRaw: string;
+      rawResponse: unknown;
+      httpStatus?: number;
+      provider?: 'paymaster';
+    }> {
       const statusApiUrl = normalize(paymaster.statusApiUrl).trim();
       const paymentNoValue = normalize(paymentNo).trim();
 
@@ -358,6 +369,96 @@ export const createPaymasterService = ({
         };
       } catch {
         return null;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+
+    async createRefund({
+      paymentNo,
+      amount,
+      currency,
+      reason,
+      merchantId,
+    }: {
+      paymentNo?: string;
+      amount?: number;
+      currency?: string;
+      reason?: string;
+      merchantId?: string;
+    }): Promise<{
+      success: boolean;
+      status?: 'refunded' | 'cancelled' | 'pending' | null;
+      statusRaw?: string;
+      httpStatus?: number;
+      rawResponse?: unknown;
+      error?: string;
+    }> {
+      const refundApiUrl = normalize(paymaster.refundApiUrl).trim();
+      const paymentNoValue = normalize(paymentNo).trim();
+
+      if (!refundApiUrl || !paymentNoValue) {
+        return {
+          success: false,
+          error: 'REFUND_API_NOT_CONFIGURED',
+        };
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(),
+        paymaster.refundApiTimeoutMs ?? 8000,
+      );
+
+      try {
+        const response = await fetch(refundApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(paymaster.refundApiToken
+              ? { Authorization: `Bearer ${paymaster.refundApiToken}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            merchantId: normalize(merchantId).trim() || paymaster.merchantId,
+            paymentNo: paymentNoValue,
+            amount,
+            currency: normalize(currency).trim() || paymaster.currency || 'RUB',
+            reason,
+          }),
+          signal: controller.signal,
+        });
+
+        let rawResponse: unknown;
+        try {
+          rawResponse = await response.json();
+        } catch {
+          rawResponse = null;
+        }
+
+        const statusRaw = extractStatusRaw(rawResponse);
+        const mappedStatus = statusRaw
+          ? (() => {
+              const status = mapStatus(statusRaw);
+              return status === 'paid' ? 'pending' : status;
+            })()
+          : null;
+        const success =
+          response.ok && (mappedStatus === 'refunded' || mappedStatus === null);
+
+        return {
+          success,
+          status: mappedStatus,
+          statusRaw,
+          rawResponse,
+          httpStatus: response.status,
+          ...(success ? {} : { error: `HTTP_${response.status}` }),
+        };
+      } catch {
+        return {
+          success: false,
+          error: 'REFUND_REQUEST_FAILED',
+        };
       } finally {
         clearTimeout(timeout);
       }

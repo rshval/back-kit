@@ -12,8 +12,7 @@ const createService = () =>
     serverBaseUrl: 'https://api.example',
   });
 
-const getQueryParams = (paymentUrl: string) =>
-  new URL(paymentUrl).searchParams;
+const getQueryParams = (paymentUrl: string) => new URL(paymentUrl).searchParams;
 
 describe('paymaster createPaymentLink', () => {
   test('serializes only successUrl when failUrl is missing', () => {
@@ -28,7 +27,9 @@ describe('paymaster createPaymentLink', () => {
 
     const params = getQueryParams(result.paymentUrl);
 
-    expect(params.get('LMI_SUCCESS_URL')).toBe('https://client.example/success');
+    expect(params.get('LMI_SUCCESS_URL')).toBe(
+      'https://client.example/success',
+    );
     expect(params.get('LMI_FAIL_URL')).toBeNull();
     expect(params.get('LMI_FAILURE_URL')).toBeNull();
   });
@@ -46,7 +47,9 @@ describe('paymaster createPaymentLink', () => {
 
     const params = getQueryParams(result.paymentUrl);
 
-    expect(params.get('LMI_SUCCESS_URL')).toBe('https://client.example/success');
+    expect(params.get('LMI_SUCCESS_URL')).toBe(
+      'https://client.example/success',
+    );
     expect(params.get('LMI_FAIL_URL')).toBe('https://client.example/fail');
     expect(params.get('LMI_FAILURE_URL')).toBe('https://client.example/fail');
   });
@@ -120,6 +123,29 @@ describe('paymaster syncPaymentStatus', () => {
     });
   });
 
+  test('maps refunded status to refunded', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'refunded' }),
+    });
+    vi.stubGlobal('fetch', fetchMock as typeof fetch);
+
+    const service = createPaymasterService({
+      paymaster: {
+        merchantId: 'merchant-1',
+        checkoutUrl: 'https://paymaster.example/checkout',
+        statusApiUrl: 'https://paymaster.example/status',
+      },
+      clientServer: 'https://client.example',
+      serverBaseUrl: 'https://api.example',
+    });
+
+    const result = await service.syncPaymentStatus({ paymentNo: 'p-1' });
+
+    expect(result?.status).toBe('refunded');
+  });
+
   test('returns null for non-2xx response', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
@@ -141,5 +167,76 @@ describe('paymaster syncPaymentStatus', () => {
     const result = await service.syncPaymentStatus({ paymentNo: 'p-1' });
 
     expect(result).toBeNull();
+  });
+});
+
+describe('paymaster createRefund', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('returns REFUND_API_NOT_CONFIGURED when config is missing', async () => {
+    const service = createService();
+
+    const result = await service.createRefund({ paymentNo: 'p-1' });
+
+    expect(result).toEqual({
+      success: false,
+      error: 'REFUND_API_NOT_CONFIGURED',
+    });
+  });
+
+  test('returns success=true when provider does not return explicit status and response is ok', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ result: { id: 'r1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock as typeof fetch);
+
+    const service = createPaymasterService({
+      paymaster: {
+        merchantId: 'merchant-1',
+        checkoutUrl: 'https://paymaster.example/checkout',
+        refundApiUrl: 'https://paymaster.example/refund',
+        refundApiToken: 'token-2',
+      },
+      clientServer: 'https://client.example',
+      serverBaseUrl: 'https://api.example',
+    });
+
+    const result = await service.createRefund({
+      paymentNo: 'p-1',
+      amount: 100,
+      reason: 'duplicate',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(result.success).toBe(true);
+    expect(result.status).toBeNull();
+  });
+
+  test('returns success=false for non-refunded status', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ status: 'pending' }),
+    });
+    vi.stubGlobal('fetch', fetchMock as typeof fetch);
+
+    const service = createPaymasterService({
+      paymaster: {
+        merchantId: 'merchant-1',
+        checkoutUrl: 'https://paymaster.example/checkout',
+        refundApiUrl: 'https://paymaster.example/refund',
+      },
+      clientServer: 'https://client.example',
+      serverBaseUrl: 'https://api.example',
+    });
+
+    const result = await service.createRefund({ paymentNo: 'p-1' });
+
+    expect(result.success).toBe(false);
+    expect(result.status).toBe('pending');
   });
 });
