@@ -62,6 +62,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./tsconfig.sites.json": "./tsconfig.sites.json"
+    "./tsconfig.sites.json": "./tsconfig.sites.json",
+    "./http-contracts": {
+      "types": "./dist/http-contracts.d.ts",
+      "import": "./dist/http-contracts.js"
+    }
   }
 }
