@@ -30,3 +30,20 @@ export { createSeedFunctions } from './seed.js';
 
 export { createApiService } from './api.js';
 export type { Token } from './api.js';
+
+export {
+  AuthHeaderBuilder,
+  createCapacitorHttpAdapter,
+  createFetchAdapter,
+  normalizeHttpError,
+  requestApi,
+} from './http-contracts.js';
+export type {
+  ApiError,
+  ApiResult,
+  CapacitorHttpClient,
+  HttpAdapter,
+  HttpRequest,
+  HttpResponse,
+  RequestWithParseOptions,
+} from './http-contracts.js';

@@ -28,6 +28,7 @@ The package is ESM-only (`"type": "module"`). For CommonJS, use dynamic `import(
 - [Audit changes](#12-audit-changes)
 - [Seed functions](#13-seed-functions)
 - [API client](#14-api-client)
+- [HTTP contracts](#15-http-contracts)
 
 ---
 
@@ -699,3 +700,40 @@ npm run build
 
 - ESM: `dist/index.js`
 - Types: `dist/index.d.ts`
+
+
+### 15) HTTP contracts
+
+`@rshval/back-kit/http-contracts` exports transport-agnostic request contracts, typed result wrappers, and adapters for Fetch and CapacitorHttp.
+
+```ts
+import {
+  AuthHeaderBuilder,
+  createFetchAdapter,
+  normalizeHttpError,
+  requestApi,
+  type ApiResult,
+} from '@rshval/back-kit/http-contracts';
+
+const auth = new AuthHeaderBuilder(); // default: Authorization: Token <jwt>
+const fetchAdapter = createFetchAdapter();
+
+const result: ApiResult<{ id: string }> = await requestApi(fetchAdapter, {
+  url: 'https://api.example.com/me',
+  method: 'GET',
+  headers: auth.apply({}, '<jwt>'),
+  timeoutMs: 10_000,
+  parseAs: 'json',
+});
+
+if (!result.ok) {
+  throw normalizeHttpError(result.error);
+}
+```
+
+Features:
+
+- shared `ApiResult<T>` and `ApiError` contracts;
+- `AuthHeaderBuilder` with default `Token` scheme for backward compatibility;
+- Fetch + CapacitorHttp adapters with unified abort + timeout strategy;
+- automatic parsing for JSON/XML/text responses (`parseAs: 'auto' | 'json' | 'xml' | 'text'`).
