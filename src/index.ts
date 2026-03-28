@@ -47,3 +47,8 @@ export type {
   HttpResponse,
   RequestWithParseOptions,
 } from './http-contracts.js';
+
+export {
+  clearDeprecatedAliasWarningsForTests,
+  resolveDeprecatedAliasField,
+} from './shared/compat/deprecated-alias.js';

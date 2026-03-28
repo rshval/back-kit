@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+import { resolveDeprecatedAliasField } from './shared/compat/deprecated-alias.js';
+
 export type PaymasterCallbackPayload = Record<
   string,
   string | number | undefined | null
@@ -79,6 +81,9 @@ const buildSignBase = (payload: PaymasterCallbackPayload, secret: string) =>
     secret,
   ].join(';');
 
+const STATUS_ALIAS_REMOVAL_DATE = '2026-12-31';
+const HASH_ALIAS_REMOVAL_DATE = '2026-12-31';
+
 const extractStatusRaw = (rawResponse: unknown) => {
   if (!rawResponse || typeof rawResponse !== 'object') return '';
 
@@ -87,26 +92,37 @@ const extractStatusRaw = (rawResponse: unknown) => {
     record.result && typeof record.result === 'object'
       ? (record.result as Record<string, unknown>)
       : null;
-  const candidates = [
-    record.status,
-    record.paymentStatus,
-    record.payment_status,
-    record.state,
-    record.invoiceStatus,
-    record.invoice_status,
-    record.LMI_PAYMENT_STATUS,
-    record.LMI_STATUS,
-    result?.status,
-    result?.state,
-    result?.paymentStatus,
-  ];
 
-  for (const candidate of candidates) {
-    const value = normalize(candidate).trim();
-    if (value) return value;
-  }
+  const topLevelStatus = resolveDeprecatedAliasField({
+    source: record,
+    canonicalKey: 'paymentStatus',
+    deprecatedAliases: [
+      'payment_status',
+      'status',
+      'state',
+      'invoiceStatus',
+      'invoice_status',
+      'LMI_PAYMENT_STATUS',
+      'LMI_STATUS',
+    ],
+    removalDate: STATUS_ALIAS_REMOVAL_DATE,
+    warningMessage: '[back-kit/paymaster] Deprecated status alias used.',
+  });
 
-  return '';
+  const topLevelValue = normalize(topLevelStatus.value).trim();
+  if (topLevelValue) return topLevelValue;
+
+  if (!result) return '';
+
+  const nestedStatus = resolveDeprecatedAliasField({
+    source: result,
+    canonicalKey: 'paymentStatus',
+    deprecatedAliases: ['status', 'state'],
+    removalDate: STATUS_ALIAS_REMOVAL_DATE,
+    warningMessage: '[back-kit/paymaster] Deprecated nested status alias used.',
+  });
+
+  return normalize(nestedStatus.value).trim();
 };
 
 const mapStatus = (statusRaw: string): PaymentSyncStatus => {
@@ -252,9 +268,14 @@ export const createPaymasterService = ({
     validateCallback(payload: PaymasterCallbackPayload, rawBody = '') {
       if (!paymaster.checkSignature) return true;
 
-      const receivedHash = normalize(
-        payload.LMI_HASH || payload.hash,
-      ).toLowerCase();
+      const receivedHashResolution = resolveDeprecatedAliasField({
+        source: payload,
+        canonicalKey: 'LMI_HASH',
+        deprecatedAliases: ['hash'],
+        removalDate: HASH_ALIAS_REMOVAL_DATE,
+        warningMessage: '[back-kit/paymaster] Deprecated callback hash alias used.',
+      });
+      const receivedHash = normalize(receivedHashResolution.value).toLowerCase();
       if (!receivedHash) return false;
 
       const algos = resolveSignatureAlgos();
@@ -293,9 +314,14 @@ export const createPaymasterService = ({
       const paidAmount = toNumber(
         payload.LMI_PAID_AMOUNT || payload.LMI_PAYMENT_AMOUNT,
       );
-      const statusRaw = normalize(
-        payload.LMI_PAYMENT_STATUS || payload.LMI_STATUS,
-      ).toLowerCase();
+      const statusResolution = resolveDeprecatedAliasField({
+        source: payload,
+        canonicalKey: 'LMI_PAYMENT_STATUS',
+        deprecatedAliases: ['LMI_STATUS'],
+        removalDate: STATUS_ALIAS_REMOVAL_DATE,
+        warningMessage: '[back-kit/paymaster] Deprecated callback status alias used.',
+      });
+      const statusRaw = normalize(statusResolution.value).toLowerCase();
       const isSuccess =
         ['success', 'paid', 'processed'].includes(statusRaw) ||
         normalize(payload.LMI_PAYMENT_SYSTEM).length > 0;

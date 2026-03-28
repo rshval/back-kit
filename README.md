@@ -737,3 +737,42 @@ Features:
 - `AuthHeaderBuilder` with default `Token` scheme for backward compatibility;
 - Fetch + CapacitorHttp adapters with unified abort + timeout strategy;
 - automatic parsing for JSON/XML/text responses (`parseAs: 'auto' | 'json' | 'xml' | 'text'`).
+
+### 16) Shared compatibility helper (deprecated aliases)
+
+Use `resolveDeprecatedAliasField` to support DTO migrations where canonical fields replace legacy aliases without duplicating fallback logic.
+
+```ts
+import { resolveDeprecatedAliasField } from '@rshval/back-kit';
+
+const status = resolveDeprecatedAliasField({
+  source: payload,
+  canonicalKey: 'paymentStatus',
+  deprecatedAliases: ['payment_status', 'status'],
+  removalDate: '2026-12-31',
+  warningMessage: '[payments] Deprecated status alias used.',
+});
+
+const normalizedStatus = String(status.value ?? '').trim();
+```
+
+Deprecation/removal policy:
+
+- canonical key always has priority if both canonical and alias are present;
+- deprecated aliases remain readable until `removalDate`;
+- in development (`NODE_ENV === 'development'`) helper logs a warn-once message for each `canonical + alias + removalDate` combination;
+- in production helper does not emit warnings.
+
+Migration example (`payment_status` -> `paymentStatus`):
+
+```ts
+const resolved = resolveDeprecatedAliasField({
+  source: body,
+  canonicalKey: 'paymentStatus',
+  deprecatedAliases: ['payment_status'],
+  removalDate: '2026-12-31',
+  warningMessage: '[paymaster] Deprecated status alias used.',
+});
+
+const paymentStatus = String(resolved.value ?? '').toLowerCase();
+```
