@@ -35,17 +35,31 @@ export {
   AuthHeaderBuilder,
   createCapacitorHttpAdapter,
   createFetchAdapter,
+  createZodValidator,
+  createZodValidatorFactory,
+  fail,
+  isFail,
+  isOk,
+  mapResult,
   normalizeHttpError,
+  normalizeTransportError,
+  ok,
   requestApi,
+  unwrapOr,
 } from './http-contracts.js';
 export type {
   ApiError,
+  ApiErrorKind,
   ApiResult,
+  CreateZodValidatorOptions,
   CapacitorHttpClient,
   HttpAdapter,
   HttpRequest,
   HttpResponse,
   RequestWithParseOptions,
+  RuntimeValidator,
+  ValidationErrorDetails,
+  ValidationIssue,
 } from './http-contracts.js';
 
 export {
