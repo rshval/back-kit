@@ -45,7 +45,10 @@ export {
   normalizeTransportError,
   ok,
   requestApi,
+  runHttpContractsGuardCodemod,
   unwrapOr,
+  httpContractsMigrationEslintPlugin,
+  noResultOkRule,
 } from './http-contracts.js';
 export type {
   ApiError,
@@ -60,6 +63,8 @@ export type {
   RuntimeValidator,
   ValidationErrorDetails,
   ValidationIssue,
+  HttpContractsGuardCodemodOptions,
+  HttpContractsGuardCodemodResult,
 } from './http-contracts.js';
 
 export {

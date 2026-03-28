@@ -67,6 +67,10 @@
     "./http-contracts": {
       "types": "./dist/http-contracts.d.ts",
       "import": "./dist/http-contracts.js"
+    },
+    "./http-contracts/migration": {
+      "types": "./dist/http-contracts-migration.d.ts",
+      "import": "./dist/http-contracts-migration.js"
     }
   }
 }
