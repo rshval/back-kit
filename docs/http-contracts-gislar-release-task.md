@@ -16,54 +16,44 @@ Target outcome: `gislar` (api + web) uses shared contract primitives from `back-
 
 ## Scope
 
-### 1) Strengthen `http-contracts` core API
-- Standardize `ApiResult<TData, TError>` shape and semantics.
-- Freeze unified error taxonomy:
-  - `transport`
-  - `validation`
-  - `domain`
-  - `unknown`
-- Provide typed helpers:
-  - `ok(...)`
-  - `fail(...)`
-  - `isOk(...)`
-  - `isFail(...)`
-  - `mapResult(...)`
-  - `unwrapOr(...)`
-- Ensure helpers are side-effect free and composable in both web and api runtime.
+### Completed
+1. ✅ Strengthen `http-contracts` core API:
+   - `ApiResult<TData, TError>` semantics standardized;
+   - error taxonomy fixed (`transport`, `validation`, `domain`, `unknown`);
+   - helpers added (`ok`, `fail`, `isOk`, `isFail`, `mapResult`, `unwrapOr`);
+   - composition remains side-effect free for web/api runtimes.
+2. ✅ Runtime validation + type safety:
+   - zod-based runtime validators added for DTO validation;
+   - validator factory support added to prevent schema wiring duplication;
+   - versioning/deprecation policy documented below.
+3. ✅ Transport adapters:
+   - fetch/capacitor adapters expose transport source (`fetch` / `capacitor-http`);
+   - transport failures are normalized with stable timeout/abort/network codes;
+   - `requestApi` preserves compatibility while mapping thrown transport errors.
+4. ✅ Documentation and usage structure:
+   - module responsibility structure documented (`contracts/errors/guards/mappers/adapters/validators`);
+   - migration guide added: `docs/http-contracts-migration-guide.md`;
+   - `gislar` API/Web integration examples added.
+5. ✅ Ecosystem follow-up for `gislar`:
+   - downstream migration checklist added to migration guide.
 
-### 2) Runtime validation + type safety
-- Add zod-based adapters for request/response DTO validation.
-- Introduce validator factories to avoid schema wiring duplication in apps.
-- Define contract versioning rules:
-  - what is allowed in `minor`;
-  - what requires `major`;
-  - deprecation policy and transition window.
+### Contract versioning rules (`http-contracts`)
+- **Minor allowed**:
+  - new additive exports (helpers, adapters, validators);
+  - additive optional fields in error details payloads;
+  - backward-compatible docs/examples updates.
+- **Major required**:
+  - changing `ApiResult` discriminant semantics (`ok: true/false`);
+  - removing or renaming public exports;
+  - changing meaning of existing taxonomy values.
+- **Deprecation policy**:
+  - mark deprecated API in docs + changelog immediately;
+  - keep compatibility wrappers for at least one minor release;
+  - removal is allowed only in next major release.
 
-### 3) Transport adapters
-- Provide adapters for typical fetch/http-client flows.
-- Normalize timeout/abort/network failure mapping into taxonomy.
-- Preserve compatibility with current `gislar` integration pattern (no hidden minor-level breaking changes).
-
-### 4) Documentation and usage structure
-- Document package structure and responsibilities:
-  - `contracts`
-  - `errors`
-  - `guards`
-  - `mappers`
-  - `adapters`
-  - `validators`
-- Add migration guide:
-  - **"from local app types to back-kit contracts"**
-- Add explicit integration examples for `gislar`:
-  - API-side example
-  - Web-side example
-
-### 5) Ecosystem follow-up for `gislar`
-Prepare migration checklist for downstream repo:
-1. Remove local duplicated result/error types.
-2. Migrate call sites to `back-kit` helpers and guards.
-3. Update `README` and architecture docs after migration.
+## Backlog status
+✅ Release task backlog is fully closed in this repository.
+Next phase backlog: [`docs/http-contracts-rollout-backlog.md`](docs/http-contracts-rollout-backlog.md).
 
 ## Acceptance Criteria
 - Public `http-contracts` API covers success/fail/guard/map scenarios.

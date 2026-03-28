@@ -706,14 +706,26 @@ npm run build
 
 `@rshval/back-kit/http-contracts` exports transport-agnostic request contracts, typed result wrappers, and adapters for Fetch and CapacitorHttp.
 
+Detailed structure + migration guide: [`docs/http-contracts-migration-guide.md`](docs/http-contracts-migration-guide.md).
+Pre-migration compatibility notes: [`docs/http-contracts-compatibility.md`](docs/http-contracts-compatibility.md).
+
 ```ts
 import {
   AuthHeaderBuilder,
   createFetchAdapter,
+  createZodValidator,
+  fail,
+  isFail,
+  isOk,
+  mapResult,
   normalizeHttpError,
+  normalizeTransportError,
+  ok,
   requestApi,
+  unwrapOr,
   type ApiResult,
 } from '@rshval/back-kit/http-contracts';
+import { z } from 'zod';
 
 const auth = new AuthHeaderBuilder(); // default: Authorization: Token <jwt>
 const fetchAdapter = createFetchAdapter();
@@ -729,11 +741,28 @@ const result: ApiResult<{ id: string }> = await requestApi(fetchAdapter, {
 if (!result.ok) {
   throw normalizeHttpError(result.error);
 }
+
+const id = unwrapOr(mapResult(result, (data) => data?.id ?? 'unknown'), 'unknown');
+
+const validateUserDto = createZodValidator(
+  z.object({
+    id: z.string(),
+  }),
+);
+
+const dtoResult = validateUserDto.validate({ id: 42 });
+
+const transportError = normalizeTransportError(new TypeError('Failed to fetch'), {
+  source: 'fetch',
+});
 ```
 
 Features:
 
-- shared `ApiResult<T>` and `ApiError` contracts;
+- shared `ApiResult<TData, TError>` contract with helpers: `ok`, `fail`, `isOk`, `isFail`, `mapResult`, `unwrapOr`;
+- unified error taxonomy: `transport | validation | domain | unknown`;
+- zod validator adapters via `createZodValidator` and `createZodValidatorFactory`;
+- transport-normalization helper `normalizeTransportError` with stable timeout/abort/network codes;
 - `AuthHeaderBuilder` with default `Token` scheme for backward compatibility;
 - Fetch + CapacitorHttp adapters with unified abort + timeout strategy;
 - automatic parsing for JSON/XML/text responses (`parseAs: 'auto' | 'json' | 'xml' | 'text'`).

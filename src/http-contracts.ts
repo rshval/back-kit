@@ -1,4 +1,10 @@
-export type ApiResult<T> = ApiSuccess<T> | ApiFailure;
+import type { ZodTypeAny, output } from 'zod';
+
+export type ApiErrorKind = 'transport' | 'validation' | 'domain' | 'unknown';
+
+export type ApiResult<TData, TError = ApiError> =
+  | ApiSuccess<TData>
+  | ApiFailure<TError>;
 
 export interface ApiSuccess<T> {
   ok: true;
@@ -7,14 +13,19 @@ export interface ApiSuccess<T> {
   data: T;
 }
 
-export interface ApiFailure {
+export interface ApiFailure<TError = ApiError> {
   ok: false;
   status: number | null;
   headers?: Record<string, string>;
-  error: ApiError;
+  error: TError;
 }
 
 export interface ApiError {
+  /**
+   * Optional for backward compatibility with repositories that still construct
+   * legacy error objects manually. Internal helpers always return `kind`.
+   */
+  kind?: ApiErrorKind;
   message: string;
   code?: string;
   status?: number | null;
@@ -51,6 +62,7 @@ export class AuthHeaderBuilder {
 
 export interface NormalizeHttpErrorOptions {
   source?: ApiError['source'];
+  kind?: ApiErrorKind;
   status?: number | null;
   code?: string;
   details?: unknown;
@@ -81,6 +93,7 @@ export const normalizeHttpError = (
     false;
 
   return {
+    kind: options.kind ?? 'transport',
     message: getErrorMessage(error),
     source: options.source ?? 'unknown',
     status: options.status,
@@ -92,6 +105,175 @@ export const normalizeHttpError = (
     isTimeout: timeoutCode,
   };
 };
+
+const NETWORK_ERROR_MESSAGES = [
+  'failed to fetch',
+  'network request failed',
+  'networkerror',
+  'load failed',
+];
+
+const isNetworkError = (error: unknown): boolean => {
+  if (error instanceof TypeError) {
+    return true;
+  }
+
+  const message = getErrorMessage(error).toLowerCase();
+  return NETWORK_ERROR_MESSAGES.some((pattern) => message.includes(pattern));
+};
+
+export const normalizeTransportError = (
+  error: unknown,
+  options: NormalizeHttpErrorOptions = {},
+): ApiError => {
+  const normalized = normalizeHttpError(error, {
+    ...options,
+    kind: 'transport',
+  });
+
+  const resolvedCode =
+    options.code ??
+    (normalized.isTimeout
+      ? 'TIMEOUT'
+      : normalized.isAbort
+        ? 'ABORTED'
+        : isNetworkError(error)
+          ? 'NETWORK_ERROR'
+          : normalized.code);
+
+  return {
+    ...normalized,
+    code: resolvedCode,
+  };
+};
+
+export const ok = <TData>(
+  data: TData,
+  options: Pick<ApiSuccess<TData>, 'status' | 'headers'> = {
+    status: 200,
+    headers: {},
+  },
+): ApiSuccess<TData> => ({
+  ok: true,
+  data,
+  status: options.status,
+  headers: options.headers,
+});
+
+export const fail = <TError>(
+  error: TError,
+  options: Pick<ApiFailure<TError>, 'status' | 'headers'> = {
+    status: null,
+    headers: {},
+  },
+): ApiFailure<TError> => ({
+  ok: false,
+  error,
+  status: options.status,
+  headers: options.headers,
+});
+
+export const isOk = <TData, TError>(
+  result: ApiResult<TData, TError>,
+): result is ApiSuccess<TData> => result.ok;
+
+export const isFail = <TData, TError>(
+  result: ApiResult<TData, TError>,
+): result is ApiFailure<TError> => !result.ok;
+
+export const mapResult = <TData, TError, TNextData>(
+  result: ApiResult<TData, TError>,
+  mapper: (value: TData) => TNextData,
+): ApiResult<TNextData, TError> => {
+  if (isFail(result)) {
+    return result;
+  }
+
+  return ok(mapper(result.data), {
+    status: result.status,
+    headers: result.headers,
+  });
+};
+
+export const unwrapOr = <TData, TError>(
+  result: ApiResult<TData, TError>,
+  fallback: TData,
+): TData => (isOk(result) ? result.data : fallback);
+
+export interface ValidationIssue {
+  path: string;
+  message: string;
+  code?: string;
+}
+
+export interface ValidationErrorDetails {
+  validator: 'zod';
+  issues: ValidationIssue[];
+  input?: unknown;
+}
+
+export interface RuntimeValidator<TInput, TOutput> {
+  validate(input: TInput): ApiResult<TOutput, ApiError>;
+}
+
+export interface CreateZodValidatorOptions {
+  includeInputInErrorDetails?: boolean;
+  code?: string;
+}
+
+const mapZodIssuePath = (path: ReadonlyArray<PropertyKey>): string =>
+  path.map((segment) => String(segment)).join('.');
+
+const createValidationDetails = (
+  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string; code?: string }>,
+  input: unknown,
+  options: CreateZodValidatorOptions,
+): ValidationErrorDetails => {
+  const details: ValidationErrorDetails = {
+    validator: 'zod',
+    issues: issues.map((issue) => ({
+      path: mapZodIssuePath(issue.path),
+      message: issue.message,
+      code: issue.code,
+    })),
+  };
+
+  if (options.includeInputInErrorDetails) {
+    details.input = input;
+  }
+
+  return details;
+};
+
+export const createZodValidator = <TSchema extends ZodTypeAny>(
+  schema: TSchema,
+  options: CreateZodValidatorOptions = {},
+): RuntimeValidator<unknown, output<TSchema>> => ({
+  validate(input) {
+    const parsed = schema.safeParse(input);
+
+    if (parsed.success) {
+      return ok(parsed.data);
+    }
+
+    return fail(
+      normalizeHttpError(new Error('Validation failed'), {
+        kind: 'validation',
+        source: 'unknown',
+        code: options.code ?? 'VALIDATION_ERROR',
+        details: createValidationDetails(parsed.error.issues, input, options),
+      }),
+    );
+  },
+});
+
+export const createZodValidatorFactory = (
+  options: CreateZodValidatorOptions = {},
+) => <TSchema extends ZodTypeAny>(
+  schema: TSchema,
+  localOptions: CreateZodValidatorOptions = {},
+): RuntimeValidator<unknown, output<TSchema>> =>
+  createZodValidator(schema, { ...options, ...localOptions });
 
 export interface HttpRequest {
   url: string;
@@ -109,6 +291,7 @@ export interface HttpResponse {
 }
 
 export interface HttpAdapter {
+  source?: ApiError['source'];
   request(request: HttpRequest): Promise<HttpResponse>;
 }
 
@@ -185,6 +368,7 @@ const normalizeHeaders = (headers?: HeadersInit): Record<string, string> => {
 export const createFetchAdapter = (
   fetchImplementation: typeof fetch = fetch,
 ): HttpAdapter => ({
+  source: 'fetch',
   async request(request) {
     const runtime = createAbortRuntime(request.signal, request.timeoutMs);
 
@@ -226,6 +410,7 @@ export interface CapacitorHttpClient {
 export const createCapacitorHttpAdapter = (
   httpClient: CapacitorHttpClient,
 ): HttpAdapter => ({
+  source: 'capacitor-http',
   async request(request) {
     const runtime = createAbortRuntime(request.signal, request.timeoutMs);
 
@@ -297,7 +482,7 @@ export interface RequestWithParseOptions extends Omit<HttpRequest, 'body'> {
 export const requestApi = async <T = unknown>(
   adapter: HttpAdapter,
   request: RequestWithParseOptions,
-): Promise<ApiResult<T | string | null>> => {
+): Promise<ApiResult<T | string | null, ApiError>> => {
   try {
     const response = await adapter.request({
       ...request,
@@ -319,32 +504,30 @@ export const requestApi = async <T = unknown>(
             : parseBody<T>(response.body, contentType);
 
     if (response.status >= 200 && response.status < 300) {
-      return {
-        ok: true,
+      return ok(parsed as T | string | null, {
         status: response.status,
         headers: response.headers,
-        data: parsed as T | string | null,
-      };
+      });
     }
 
-    return {
-      ok: false,
-      status: response.status,
-      headers: response.headers,
-      error: normalizeHttpError(new Error(`HTTP ${response.status}`), {
+    return fail(
+      normalizeHttpError(new Error(`HTTP ${response.status}`), {
         source: 'http',
+        kind: 'transport',
         status: response.status,
         responseBody: response.body,
         details: parsed,
       }),
-    };
+      {
+        status: response.status,
+        headers: response.headers,
+      },
+    );
   } catch (error) {
-    const normalized = normalizeHttpError(error, { source: 'unknown' });
+    const normalized = normalizeTransportError(error, {
+      source: adapter.source ?? 'unknown',
+    });
 
-    return {
-      ok: false,
-      status: normalized.status ?? null,
-      error: normalized,
-    };
+    return fail(normalized, { status: normalized.status ?? null, headers: {} });
   }
 };
