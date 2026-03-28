@@ -433,10 +433,14 @@ const paymaster = createPaymasterService({
     checkSignature: true,
     statusApiUrl: process.env.PAYMASTER_STATUS_API_URL,
     statusApiToken: process.env.PAYMASTER_STATUS_API_TOKEN,
-    statusApiTimeoutMs: Number(process.env.PAYMASTER_STATUS_API_TIMEOUT_MS || 8000),
+    statusApiTimeoutMs: Number(
+      process.env.PAYMASTER_STATUS_API_TIMEOUT_MS || 8000,
+    ),
     refundApiUrl: process.env.PAYMASTER_REFUND_API_URL,
     refundApiToken: process.env.PAYMASTER_REFUND_API_TOKEN,
-    refundApiTimeoutMs: Number(process.env.PAYMASTER_REFUND_API_TIMEOUT_MS || 8000),
+    refundApiTimeoutMs: Number(
+      process.env.PAYMASTER_REFUND_API_TIMEOUT_MS || 8000,
+    ),
   },
   clientServer: 'https://site.example.com',
   serverBaseUrl: 'https://api.example.com',
@@ -701,7 +705,6 @@ npm run build
 - ESM: `dist/index.js`
 - Types: `dist/index.d.ts`
 
-
 ### 15) HTTP contracts
 
 `@rshval/back-kit/http-contracts` exports transport-agnostic request contracts, typed result wrappers, and adapters for Fetch and CapacitorHttp.
@@ -738,11 +741,14 @@ const result: ApiResult<{ id: string }> = await requestApi(fetchAdapter, {
   parseAs: 'json',
 });
 
-if (!result.ok) {
+if (isFail(result)) {
   throw normalizeHttpError(result.error);
 }
 
-const id = unwrapOr(mapResult(result, (data) => data?.id ?? 'unknown'), 'unknown');
+const id = unwrapOr(
+  mapResult(result, (data) => data?.id ?? 'unknown'),
+  'unknown',
+);
 
 const validateUserDto = createZodValidator(
   z.object({
@@ -752,9 +758,12 @@ const validateUserDto = createZodValidator(
 
 const dtoResult = validateUserDto.validate({ id: 42 });
 
-const transportError = normalizeTransportError(new TypeError('Failed to fetch'), {
-  source: 'fetch',
-});
+const transportError = normalizeTransportError(
+  new TypeError('Failed to fetch'),
+  {
+    source: 'fetch',
+  },
+);
 ```
 
 Features:
@@ -766,6 +775,45 @@ Features:
 - `AuthHeaderBuilder` with default `Token` scheme for backward compatibility;
 - Fetch + CapacitorHttp adapters with unified abort + timeout strategy;
 - automatic parsing for JSON/XML/text responses (`parseAs: 'auto' | 'json' | 'xml' | 'text'`).
+
+Migration helpers for downstream repositories are available in `@rshval/back-kit/http-contracts/migration`:
+
+- `runHttpContractsGuardCodemod(source)` — rewrites `result.ok` / `!result.ok` checks to `isOk(result)` / `isFail(result)` and syncs imports.
+- `httpContractsMigrationEslintPlugin.rules["no-result-ok"]` — blocks new `result.ok` usages and offers autofix.
+
+Node example (`scripts/migrate-http-contracts.mjs`):
+
+```ts
+import { readFileSync, writeFileSync } from 'node:fs';
+import { runHttpContractsGuardCodemod } from '@rshval/back-kit/http-contracts/migration';
+
+const file = 'src/user-api.ts';
+const source = readFileSync(file, 'utf8');
+const migrated = runHttpContractsGuardCodemod(source);
+
+if (migrated.changed) {
+  writeFileSync(file, migrated.code);
+  console.log(`updated ${file}: ${migrated.replacements} replacements`);
+}
+```
+
+Svelte + ESLint example (`eslint.config.js`):
+
+```ts
+import { httpContractsMigrationEslintPlugin } from '@rshval/back-kit/http-contracts/migration';
+
+export default [
+  {
+    files: ['src/**/*.ts', 'src/**/*.svelte'],
+    plugins: {
+      'http-contracts-migration': httpContractsMigrationEslintPlugin,
+    },
+    rules: {
+      'http-contracts-migration/no-result-ok': 'error',
+    },
+  },
+];
+```
 
 ### 16) Shared compatibility helper (deprecated aliases)
 

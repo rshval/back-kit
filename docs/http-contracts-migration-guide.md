@@ -5,6 +5,7 @@
 `@rshval/back-kit/http-contracts` should be consumed as layered primitives:
 
 ### contracts
+
 - `ApiResult<TData, TError>`
 - `ApiSuccess<TData>`
 - `ApiFailure<TError>`
@@ -12,6 +13,7 @@
 Responsibility: keep one transport-agnostic success/failure envelope for API and Web consumers.
 
 ### errors
+
 - `ApiError`
 - `ApiErrorKind`
 - `normalizeHttpError(...)`
@@ -20,18 +22,21 @@ Responsibility: keep one transport-agnostic success/failure envelope for API and
 Responsibility: normalize runtime/transport/domain validation failures into one shared taxonomy (`transport | validation | domain | unknown`).
 
 ### guards
+
 - `isOk(...)`
 - `isFail(...)`
 
 Responsibility: narrow result unions safely in application flows and avoid ad-hoc `ok` checks across codebase.
 
 ### mappers
+
 - `mapResult(...)`
 - `unwrapOr(...)`
 
 Responsibility: keep result transformation and fallback behavior reusable and side-effect-free.
 
 ### adapters
+
 - `createFetchAdapter(...)`
 - `createCapacitorHttpAdapter(...)`
 - `requestApi(...)`
@@ -39,6 +44,7 @@ Responsibility: keep result transformation and fallback behavior reusable and si
 Responsibility: isolate HTTP-transport specifics and produce shared `ApiResult` contracts.
 
 ### validators
+
 - `createZodValidator(...)`
 - `createZodValidatorFactory(...)`
 
@@ -49,16 +55,19 @@ Responsibility: centralize DTO runtime validation and eliminate duplicated schem
 ## 2. Migration: from local app contracts to `back-kit/http-contracts`
 
 ### Before (typical local duplication)
+
 - local `Result<T>` / `ErrorDto` interfaces in API and Web repositories;
 - local timeout/network parsing heuristics;
 - local zod wrapping with custom `{ success, error }` result shape.
 
 ### After (target state)
+
 - use shared `ApiResult<TData, TError>` in both API and Web call chains;
 - use `normalizeTransportError` for timeout/abort/network code classification;
 - use `createZodValidatorFactory` to share validator defaults and return `ApiResult` directly.
 
 ### Minimal migration steps
+
 1. Replace local result/error type aliases with `ApiResult` and `ApiError`.
 2. Replace ad-hoc checks with `isOk` / `isFail` guards.
 3. Replace custom DTO wrappers with `createZodValidator` or factory-built validators.
@@ -70,7 +79,12 @@ Responsibility: centralize DTO runtime validation and eliminate duplicated schem
 ## 3. `gislar` API-side integration example
 
 ```ts
-import { createFetchAdapter, createZodValidatorFactory, isFail, requestApi } from '@rshval/back-kit/http-contracts';
+import {
+  createFetchAdapter,
+  createZodValidatorFactory,
+  isFail,
+  requestApi,
+} from '@rshval/back-kit/http-contracts';
 import { z } from 'zod';
 
 const http = createFetchAdapter();
@@ -128,13 +142,69 @@ export async function getUserName() {
     return 'Guest';
   }
 
-  return unwrapOr(mapResult(result, (data) => data?.profile?.name ?? 'Guest'), 'Guest');
+  return unwrapOr(
+    mapResult(result, (data) => data?.profile?.name ?? 'Guest'),
+    'Guest',
+  );
 }
 ```
 
 ---
 
-## 5. `gislar` downstream migration checklist
+## 5. Automated migration in consumer repositories
+
+Use `@rshval/back-kit/http-contracts/migration` to reduce manual edits when replacing `result.ok` checks.
+
+### Node codemod script example
+
+```ts
+import { readFileSync, writeFileSync } from 'node:fs';
+import { runHttpContractsGuardCodemod } from '@rshval/back-kit/http-contracts/migration';
+
+const files = ['src/api/user-client.ts', 'src/api/orders-client.ts'];
+
+for (const file of files) {
+  const source = readFileSync(file, 'utf8');
+  const migrated = runHttpContractsGuardCodemod(source);
+
+  if (!migrated.changed) {
+    continue;
+  }
+
+  writeFileSync(file, migrated.code);
+  console.log(
+    `[http-contracts] ${file}: ${migrated.replacements} replacements`,
+  );
+}
+```
+
+### Svelte + ESLint autofix example
+
+```ts
+import { httpContractsMigrationEslintPlugin } from '@rshval/back-kit/http-contracts/migration';
+
+export default [
+  {
+    files: ['src/**/*.ts', 'src/**/*.svelte'],
+    plugins: {
+      'http-contracts-migration': httpContractsMigrationEslintPlugin,
+    },
+    rules: {
+      'http-contracts-migration/no-result-ok': 'error',
+    },
+  },
+];
+```
+
+Recommended rollout for large repositories:
+
+1. Run codemod once to migrate the bulk of existing code.
+2. Run ESLint with `--fix` to catch leftover edge cases.
+3. Keep the ESLint rule enabled to block regressions.
+
+---
+
+## 6. `gislar` downstream migration checklist
 
 - [ ] Remove local duplicated `result/error` contracts.
 - [ ] Migrate all API/Web call-sites to `ApiResult` and guards.
